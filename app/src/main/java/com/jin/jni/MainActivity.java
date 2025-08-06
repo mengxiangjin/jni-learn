@@ -2,16 +2,23 @@ package com.jin.jni;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 
 import com.jin.jni.databinding.ActivityMainBinding;
+
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
 
     static {
         System.loadLibrary("mainlib");
+        System.loadLibrary("dynamiclib");
     }
 
     private ActivityMainBinding binding;
@@ -37,7 +44,27 @@ public class MainActivity extends AppCompatActivity {
         tv.setText(String.valueOf(Dynamic.v1(10,20)));
         tv.setText(String.valueOf(Dynamic.v2("bbbbbb")));
 
+
+
         tv.setText(stringFromJNI());
+        tv.setText(stringFromJNIWithDynamic1("data1"));
+        tv.setText(String.valueOf(stringFromJNIWithDynamic2("data2",100)));
+        getSoLibraryPath(this);
+    }
+
+    public String getSoLibraryPath(Context context) {
+        PackageManager packageManager = context.getPackageManager();
+        List<PackageInfo> installedPackages = packageManager.getInstalledPackages(0);
+        for (int i = 0; i < installedPackages.size(); i++) {
+            PackageInfo packageInfo = installedPackages.get(i);
+            if (packageInfo.applicationInfo.nativeLibraryDir.startsWith("/data/app")) {
+                if (packageInfo.packageName.contains("com.jin")) {
+                    Log.d("TAG", "getSoLibraryPath: " + packageInfo.packageName + "---->" + packageInfo.applicationInfo.nativeLibraryDir);
+                    return packageInfo.applicationInfo.nativeLibraryDir;
+                }
+            }
+        }
+        return "";
     }
 
     /**
@@ -45,4 +72,8 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
+    public native String stringFromJNIWithDynamic1(String data);
+
+    public native int stringFromJNIWithDynamic2(String data,int digit);
 }

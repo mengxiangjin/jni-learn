@@ -27,6 +27,9 @@ project("jni")
 add_library(mainlib SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
         native-lib.cpp)
+add_library(dynamiclib SHARED dynamic-lib.cpp)
+
+
 add_library(utils SHARED demo.c)
 add_library(dynamic SHARED dynamic.c)
 
@@ -34,19 +37,22 @@ add_library(dynamic SHARED dynamic.c)
 # can link libraries from various origins, such as libraries defined in this
 # build script, prebuilt third-party libraries, or Android system libraries.
 
-target_link_libraries(mainlib log)
+find_library(log-lib log)
+
+target_link_libraries(mainlib ${log-lib})
+target_link_libraries(dynamiclib ${log-lib})
 
 target_link_libraries(mainlib
         # List libraries link to the target library
         utils
-        log)
+        ${log-lib})
 
 
 target_link_libraries(mainlib
         # List libraries link to the target library
         android
         #        utils
-        log)
+        ${log-lib})
 target_link_libraries(mainlib
         dynamic
-        log)
+        ${log-lib})
