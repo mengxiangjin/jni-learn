@@ -2,11 +2,40 @@
 #include <string>
 #include <android/log.h>
 #include <pthread.h>
+#include <dlfcn.h>
 
 
 #define TAG "xiaojianbang"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
+
+
+void test_dynamic() {
+    LOGD("dynamic-lib test_dynamic");
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_jin_jni_MainActivity_callPathSoFunc(JNIEnv* env,jobject obj,jstring path) {
+    std::string res = "callPathSoFunc ---> result";
+    char* fileName = const_cast<char *>(env->GetStringUTFChars(path, nullptr));
+    LOGD("callPathSoFunc %s",fileName);
+
+    void* open = dlopen(fileName,RTLD_NOW);
+    void (*def)() = nullptr;
+    def = reinterpret_cast<void (*)()>(dlsym(open, "native_libB_testA"));
+    if (def == nullptr) {
+        LOGE("未找到native_libB_testA方法");
+    } else{
+        def();
+    }
+
+    // 3. 使用 dlsym 查找函数
+    jstring (*native_libB_testB_ptr)(JNIEnv*, char*) =
+    reinterpret_cast<jstring (*)(JNIEnv*, char*)>(dlsym(open, "native_libB_testB"));
+    jstring result = native_libB_testB_ptr(env,"avaa");
+    LOGD("获取到结果是%s",env->GetStringUTFChars(result, nullptr));
+    return env->NewStringUTF(res.c_str());
+}
 
 
 jstring realFunc1(JNIEnv* env,jobject object,jstring a) {

@@ -19,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("mainlib");
         System.loadLibrary("dynamiclib");
+        System.loadLibrary("activecalllib");
     }
 
     private ActivityMainBinding binding;
@@ -49,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
         tv.setText(stringFromJNI());
         tv.setText(stringFromJNIWithDynamic1("data1"));
         tv.setText(String.valueOf(stringFromJNIWithDynamic2("data2",100)));
-        getSoLibraryPath(this);
+        tv.setText(callPathSoFunc(getSoLibraryPath(this) + "/libmainlib.so"));
     }
 
     public String getSoLibraryPath(Context context) {
@@ -76,4 +77,7 @@ public class MainActivity extends AppCompatActivity {
     public native String stringFromJNIWithDynamic1(String data);
 
     public native int stringFromJNIWithDynamic2(String data,int digit);
+
+
+    public native String callPathSoFunc(String path);
 }

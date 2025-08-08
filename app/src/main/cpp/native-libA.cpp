@@ -8,6 +8,8 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
 
+ void native_libB_test();
+
 void thread_fun() {
     LOGD("thread_fun 进来了");
 }
@@ -28,6 +30,8 @@ Java_com_jin_jni_MainActivity_stringFromJNI(
     __android_log_print(ANDROID_LOG_DEBUG,TAG,"stringFromJNI jni fmt %d %d",100,200);
     LOGE("stringFromJNI jni fmt %d",100);
     LOGD("stringFromJNI %p",env);
+
+    native_libB_test();
 
     //创建线程
     long pthread;

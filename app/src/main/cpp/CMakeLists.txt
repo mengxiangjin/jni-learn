@@ -26,8 +26,9 @@ project("jni")
 # used in the AndroidManifest.xml file.
 add_library(mainlib SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        native-lib.cpp)
+        native-libA.cpp native-libB.cpp)
 add_library(dynamiclib SHARED dynamic-lib.cpp)
+add_library(activecalllib SHARED active-call-lib.cpp)
 
 
 add_library(utils SHARED demo.c)
@@ -38,9 +39,9 @@ add_library(dynamic SHARED dynamic.c)
 # build script, prebuilt third-party libraries, or Android system libraries.
 
 find_library(log-lib log)
-
-target_link_libraries(mainlib ${log-lib})
+target_link_libraries(mainlib ${log-lib} dynamiclib)
 target_link_libraries(dynamiclib ${log-lib})
+target_link_libraries(activecalllib ${log-lib})
 
 target_link_libraries(mainlib
         # List libraries link to the target library
