@@ -773,6 +773,8 @@
 
 #### 子线程创建类
 
+##### 获取系统类（Java包非Android包）
+
 - 子线程中通过拿到唯一的JavaVM* vm对象，获取JNIEnv* env对象，将获取到的env对象vm->AttachCurrentThread(&env, nullptr)附加到当前线程即可
 
 - ```java
@@ -781,8 +783,12 @@
       if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
           vm->AttachCurrentThread(&env, nullptr);
       }
+      //nullptr
       jclass aClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+      //nullptr
       jclass bClass = env->FindClass("android/app/Activity");
+      //可以正常获取
+      jclass cls = env->FindClass("java/lang/String");
       env->DeleteLocalRef(bClass);
   }
   
@@ -796,3 +802,89 @@
       pthread_create(&pthread, nullptr, reinterpret_cast<void *(*)(void *)>(create_class), vm);
   }
   ```
+
+##### 获取非系统类
+
+- 使用全局变量进行间接传递
+
+- ```c
+  //全局变量，env->NewGlobalRef声明
+  jclass ndkClass;
+  
+  JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *unused) {
+      javaVM = vm;
+      JNIEnv *env = nullptr;
+      if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+          LOGD("GetEnv failed");
+          return -1;
+      }
+  
+      jclass localRef = env->FindClass("com/jin/jni/bean/NDKDemo");
+      //赋值全局变量
+      ndkClass = (jclass)env->NewGlobalRef(localRef);
+      return JNI_VERSION_1_6;
+  }
+  
+  //子线程方法体
+  void create_class() {
+      JNIEnv *env = nullptr;
+      bool needDetach = false;
+      if (javaVM->GetEnv((void **) &env, JNI_VERSION_1_4) < 0) {
+          LOGD("----AttachCurrentThread----");
+          javaVM->AttachCurrentThread(&env, NULL);
+          needDetach = true;
+      }
+  
+      jfieldID field = env->GetStaticFieldID(ndkClass, "publicStaticStringField", "Ljava/lang/String;");
+      jstring data =(jstring) env->GetStaticObjectField(ndkClass, field);
+      LOGD("data in threadFunc : %s", env->GetStringUTFChars(data, nullptr));
+      env->ExceptionClear();
+      if (needDetach) {
+          LOGD("----DetachCurrentThread----");
+          javaVM->DetachCurrentThread();
+      }
+  }
+  
+  extern "C" JNIEXPORT void JNICALL
+  Java_com_jin_jni_MainActivity_createClassFromThread(JNIEnv *env,jobject obj) {
+      long pthread;
+      //创建子线程
+      pthread_create(&pthread, nullptr, reinterpret_cast<void *(*)(void *)>(create_class), nullptr);
+  }
+  ```
+
+#### _init与__initArray__
+
+- so在执行JNI_Onload之前，还会执行两个构造函数init、initarray
+
+- so加固、so中字符串加密等等，一般会把相关代码放到这里
+
+- init的使用
+
+  - ```c
+    extern "C" void _init() {
+        LOGE("memory-lib init");
+    }
+    ```
+
+- initarray的使用
+
+  - ```c
+    __attribute__((constructor)) void fun1() {
+        LOGE("memory-lib fun1");
+    }
+    
+    __attribute__((constructor)) void fun2() {
+        LOGE("memory-lib fun2");
+    }
+    ```
+
+  - __attribute__ ((constructor)) void initArrayTest1(){ ... }
+
+  - __attribute__ ((constructor(200))) void initArrayTest2(){ ... }
+
+  - __attribute__ ((constructor(101))) void initArrayTest3(){ ... }
+
+  - __attribute__ ((constructor, visibility("hidden"))) void initArrayTest4(){ ... }
+
+  - constructor后面的值，较小的先执行，最好从100以后开始用如果constructor后面没有跟值，那么按定义的顺序，从上往下执行 
