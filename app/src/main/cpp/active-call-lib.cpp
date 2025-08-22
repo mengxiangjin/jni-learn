@@ -9,6 +9,13 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG,__VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,TAG,__VA_ARGS__)
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_jin_jni_MainActivity_onResume(JNIEnv* env,jobject jobject1) {
+    jclass cls = env->FindClass("androidx/fragment/app/FragmentActivity");
+    jmethodID methodID = env->GetMethodID(cls,"onResume", "()V");
+    env->CallNonvirtualVoidMethod(jobject1,cls,methodID);
+}
+
 jobject getStaticField(JNIEnv* env,jclass jclass,char* name,char *sig) {
     jfieldID pJfieldId = env->GetStaticFieldID(jclass,name,sig);
     jobject jobject = env->GetStaticObjectField(jclass,pJfieldId);
@@ -19,12 +26,6 @@ jobject getField(JNIEnv* env,jclass jclass,char* name,char *sig,jobject instance
     jfieldID pJfieldId = env->GetFieldID(jclass,name,sig);
     jobject jobject = env->GetObjectField(instance,pJfieldId);
     return jobject;
-}
-void callStaticFunc(JNIEnv* env,jclass jclass,char* name,char* sign,...) {
-    jmethodID jmethodId = env->GetStaticMethodID(jclass,name,sign);
-    va_list args;
-    va_start(args, jmethodId);
-    env->CallStaticVoidMethod(jclass,jmethodId,args);
 }
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *unused) {
@@ -85,9 +86,46 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *unused) {
         LOGD("bytes值：%d",bytes[i]);
     };
 
+    //调用静态方法，空参数、空返回值
+    jmethodID jmethodID = env->GetStaticMethodID(ndkClass,"publicStaticFunc","()V");
+    env->CallStaticVoidMethod(ndkClass,jmethodID);
 
-    //
+    //调用对象方法  参数（String,int） 返回值String
+    jstring res1 = static_cast<jstring>(env->CallObjectMethod(jobject1, env->GetMethodID(ndkClass,
+                                                                                        "privateFunc",
+                                                                                        "(Ljava/lang/String;I)Ljava/lang/String;"),
+                                                             env->NewStringUTF("abc"), 10));
+    LOGD("CallObjectMethod ---> %s",env->GetStringUTFChars(res1, nullptr));
 
+
+    jvalue args[2];
+    args[0].l = env->NewStringUTF("def");
+    args[1].i = 20;
+    jstring res2 = static_cast<jstring>(env->CallObjectMethodA(jobject1, env->GetMethodID(ndkClass,
+                                                                                          "privateFunc",
+                                                                                          "(Ljava/lang/String;I)Ljava/lang/String;"),
+                                                               args));
+    LOGD("CallObjectMethodA ---> %s",env->GetStringUTFChars(res2, nullptr));
+
+    //参数是数组，返回值是数组
+    jobjectArray newObjectArray = env->NewObjectArray(3,env->FindClass("java/lang/String"), nullptr);
+    for (int i = 0; i < env->GetArrayLength(newObjectArray); ++i) {
+        //jstring item = env->NewStringUTF("ghi" + i);
+        //拼接字符串
+        jstring item = env->NewStringUTF(("ghi" + std::to_string(i)).c_str());
+        env->SetObjectArrayElement(newObjectArray,i,item);
+    }
+
+    jintArray intArray = static_cast<jintArray>(env->CallStaticObjectMethod(ndkClass,
+                                                                              env->GetStaticMethodID(
+                                                                                      ndkClass,
+                                                                                      "privateStaticFunc",
+                                                                                      "([Ljava/lang/String;)[I"),
+                                                                              newObjectArray));
+    jint *p = env->GetIntArrayElements(intArray, nullptr);
+    for (int i = 0; i < env->GetArrayLength(intArray); ++i) {
+        LOGD("返回值 ---》%d",p[i]);
+    }
     return JNI_VERSION_1_6;
 }
 

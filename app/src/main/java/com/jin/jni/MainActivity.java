@@ -2,6 +2,7 @@ package com.jin.jni;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -20,9 +21,14 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("mainlib");
         System.loadLibrary("dynamiclib");
         System.loadLibrary("activecalllib");
+        System.loadLibrary("memorylib");
     }
 
     private ActivityMainBinding binding;
+
+    @SuppressLint("MissingSuperCall")
+    protected native void onResume();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,27 +37,30 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Example of a call to a native method
         TextView tv = binding.sampleText;
-        tv.setText(String.valueOf(Utils.v1(20,10)));
-        tv.setText(Utils.v2("bbbbbb"));
-        tv.setText(Utils.v3("bbbbbb"));
-        tv.setText(Utils.v4("aaa","bbb"));
-        tv.setText(Utils.v5("这这这"));
-        tv.setText(Utils.v6("这这这".getBytes()));
-        tv.setText(Utils.v7());
-        tv.setText(Utils.v8());
-
-        tv.setText(String.valueOf(Dynamic.v1(10,20)));
-        tv.setText(String.valueOf(Dynamic.v2("bbbbbb")));
-
-
 
         tv.setText(stringFromJNI());
         tv.setText(stringFromJNIWithDynamic1("data1"));
         tv.setText(String.valueOf(stringFromJNIWithDynamic2("data2",100)));
         tv.setText(callPathSoFunc(getSoLibraryPath(this) + "/libmainlib.so"));
+
+        callMemoryFunc();
+        createClassFromThread();
     }
+
+
+    public native String stringFromJNI();
+
+    public native String stringFromJNIWithDynamic1(String data);
+
+    public native int stringFromJNIWithDynamic2(String data,int digit);
+
+    public native String callPathSoFunc(String path);
+
+    public native String callMemoryFunc();
+
+    public native void createClassFromThread();
+
 
     public String getSoLibraryPath(Context context) {
         PackageManager packageManager = context.getPackageManager();
@@ -67,17 +76,4 @@ public class MainActivity extends AppCompatActivity {
         }
         return "";
     }
-
-    /**
-     * A native method that is implemented by the 'jni' native library,
-     * which is packaged with this application.
-     */
-    public native String stringFromJNI();
-
-    public native String stringFromJNIWithDynamic1(String data);
-
-    public native int stringFromJNIWithDynamic2(String data,int digit);
-
-
-    public native String callPathSoFunc(String path);
 }

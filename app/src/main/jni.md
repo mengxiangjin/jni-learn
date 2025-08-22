@@ -539,3 +539,260 @@
         return env->NewStringUTF(res.c_str());
     }
     ```
+
+### JNI与Java的交互
+
+#### 创建Java对象
+
+- **env->NewObject（jclass，jmethodID）**
+
+- 找类、获取类中的方法、构造对象
+
+- ```java
+  //创建对象
+  jclass ndkClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+  
+  jmethodID jmethodId1 = env->GetMethodID(ndkClass,"<init>", "()V");
+  jobject jobject1 = env->NewObject(ndkClass,jmethodId1);
+  
+  jmethodID jmethodId2 = env->GetMethodID(ndkClass,"<init>", "(Ljava/lang/String;I)V");
+  jobject jobject2 = env->NewObject(ndkClass,jmethodId2,env->NewStringUTF("参数1"),10);
+  LOGD("无参对象：jobject1 %p",jobject1);
+  LOGD("有参对象：jobject2 %p",jobject2);
+  ```
+
+#### 获取静态属性
+
+- **getStaticField（env，jclass，char* name，char* sign）**
+
+- ```java
+  jclass ndkClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+  //获取静态字段(String)
+  jstring strField1 =(jstring) getStaticField(env,ndkClass,"publicStaticStringField","Ljava/lang/String;");
+  const char* field1 = env->GetStringUTFChars(strField1, nullptr);
+  LOGD("静态字段：field %s",field1);
+  ```
+
+获取对象属性
+
+- **getField（env，jclass，char* name，char* sign，jobject）**
+
+- ```java
+  jclass ndkClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+  jmethodID jmethodId1 = env->GetMethodID(ndkClass,"<init>", "()V");
+  jobject jobject1 = env->NewObject(ndkClass,jmethodId1);
+  
+  //获取对象字段(String)
+  jstring strField2 =(jstring) getField(env,ndkClass,"privateStringField","Ljava/lang/String;",jobject1);
+  const char* field2 = env->GetStringUTFChars(strField2, nullptr);
+  LOGD("对象字段：field %s",field2);
+  ```
+
+#### 设置对象属性（String为例）
+
+- **env->SetObjectField（jobject instance，jfieldID，jobject value）**
+
+- ```java
+  //设置对象字段(String)
+  jstring value = env->NewStringUTF("这是新设置的字段");
+  //获取字段ID
+  jfieldID jfieldId1 = env->GetFieldID(ndkClass,"privateStringField", "Ljava/lang/String;");
+  
+  //设置对象字段为具体的值
+  env->SetObjectField(jobject1,jfieldId1,value);
+  
+  jstring strField3 =(jstring) getField(env,ndkClass,"privateStringField","Ljava/lang/String;",jobject1);
+  const char* field3 = env->GetStringUTFChars(strField3, nullptr);
+  LOGD("对象字段设置后：field %s",field3);
+  ```
+
+- 设置字节数组
+
+  - ```java
+    //获取对象字节数组
+    jbyteArray byte_array =(jbyteArray) getField(env,ndkClass,"byteArray","[B",jobject1);
+    //打印字节数组
+    jsize length = env->GetArrayLength(byte_array);
+    jbyte* bytes = env->GetByteArrayElements(byte_array, nullptr);
+    for (jsize i=0;i<length;i++) {
+        LOGD("bytes值：%d",bytes[i]);
+    };
+    
+    //设置对象字节数组值
+    for (jsize i=0;i<length;i++) {
+        bytes[i] = (char)(100-i);
+    }
+    
+    env->ReleaseByteArrayElements(byte_array,bytes,0);
+    
+    for (jsize i=0;i<length;i++) {
+        LOGD("bytes值：%d",bytes[i]);
+    };
+    ```
+
+#### 调用静态方法
+
+- **env->CallStaticVoidMethod（jclass，jmethodID）**
+
+- ```java
+  //调用静态方法，空参数、空返回值
+  jclass ndkClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+  
+  jmethodID jmethodID = env->GetStaticMethodID(ndkClass,"publicStaticFunc","()V");
+  env->CallStaticVoidMethod(ndkClass,jmethodID);
+  ```
+
+#### 调用对象方法
+
+- **env->CallObjectMethod（jobject instance，jmethodID，可变长参数）**
+
+- ```java
+  //调用对象方法  参数（String,int） 返回值String
+  jstring res1 = static_cast<jstring>(env->CallObjectMethod(jobject1, env->GetMethodID(ndkClass,
+                                                                                      "privateFunc",
+                                                                                      "(Ljava/lang/String;I)Ljava/lang/String;"),
+                                                           env->NewStringUTF("abc"), 10));
+  LOGD("CallObjectMethod ---> %s",env->GetStringUTFChars(res1, nullptr));
+  ```
+
+- **env->CallObjectMethodA（jobject instance，jmethodID，共同体jvalue*）**
+
+- ```java
+  //效果等同于传递了2个参数，"def"与20
+  jvalue args[2];
+  args[0].l = env->NewStringUTF("def");
+  args[1].i = 20;
+  jstring res2 = static_cast<jstring>(env->CallObjectMethodA(jobject1, env->GetMethodID(ndkClass,
+                                                                                        "privateFunc",
+                                                                                        "(Ljava/lang/String;I)Ljava/lang/String;"),
+                                                             args));
+  LOGD("CallObjectMethodA ---> %s",env->GetStringUTFChars(res2, nullptr));
+  ```
+
+- 调用对象的此方法
+
+  - 参数是String[]，返回值是int[]
+
+  - ```java
+    private static int[] privateStaticFunc(String[] str){
+        StringBuilder retval = new StringBuilder();
+        for(String i : str) {
+            retval.append(i);
+        }
+        Log.d("xiaojianbang", "this is privateStaticFunc: " + retval.toString());
+        return new int[]{0,1,2,3,4,5,6,7,8,9};
+    }
+    ```
+
+  - **String[]在JNI中相当于jobjectArray，里面存放着jstring（新建参数）newObjectArray**
+
+  - ```java
+    //参数是数组，返回值是数组
+    jobjectArray newObjectArray = env->NewObjectArray(3,env->FindClass("java/lang/String"), nullptr);
+    for (int i = 0; i < env->GetArrayLength(newObjectArray); ++i) {
+        //jstring item = env->NewStringUTF("ghi" + i);
+        //拼接字符串
+        jstring item = env->NewStringUTF(("ghi" + std::to_string(i)).c_str());
+        env->SetObjectArrayElement(newObjectArray,i,item);
+    }
+    ```
+
+  - **返回值是int[]在JNI中相当于jintArray，调用方法后强制转换即可**
+
+  - ```java
+    //参数是数组，返回值是数组
+    jobjectArray newObjectArray = env->NewObjectArray(3,env->FindClass("java/lang/String"), nullptr);
+    for (int i = 0; i < env->GetArrayLength(newObjectArray); ++i) {
+        //jstring item = env->NewStringUTF("ghi" + i);
+        //拼接字符串
+        jstring item = env->NewStringUTF(("ghi" + std::to_string(i)).c_str());
+        env->SetObjectArrayElement(newObjectArray,i,item);
+    }
+    
+    //调用对象方法，传递newObjectArray参数
+    jintArray intArray = static_cast<jintArray>(env->CallStaticObjectMethod(ndkClass,                                               env->GetStaticMethodID(                               		ndkClass,                                                "privateStaticFunc",                                    "([Ljava/lang/String;)								[I"),                                        	newObjectArray));
+    //获取元素打印
+    jint *p = env->GetIntArrayElements(intArray, nullptr);
+    for (int i = 0; i < env->GetArrayLength(intArray); ++i) {
+        LOGD("返回值 ---》%d",p[i]);
+    }
+    ```
+
+#### 调用父类方法
+
+- **Activity中的onResume方法重写必须调用父类的super.onResume()，否则闪退**
+
+  ```java
+  @SuppressLint("MissingSuperCall")
+  protected native void onResume();
+  ```
+
+  ```java
+  extern "C" JNIEXPORT void JNICALL
+  Java_com_jin_jni_MainActivity_onResume(JNIEnv* env,jobject jobject1) {
+      jclass cls = env->FindClass("androidx/fragment/app/FragmentActivity");
+      jmethodID methodID = env->GetMethodID(cls,"onResume", "()V");
+      //等价于this.super.onResume()
+      env->CallNonvirtualVoidMethod(jobject1,cls,methodID);
+  }
+  ```
+
+#### 全局、局部变量
+
+- 局部变量：大多数jni函数调用之后返回的都为局部变量
+
+- 全局变量：同大多数语法不同，将变量声明写在全局作用域不可行
+
+  - jobject env->NewGlobalRef（jobject）
+
+  - jweek env->NewWeakGlobalRef（jobject）：弱引用
+
+  - ```java
+    jobject ndkClass;
+    JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *unused) {
+        JNIEnv *env = nullptr;
+        if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+            LOGD("GetEnv failed");
+            return -1;
+        }
+        jclass localRef = env->FindClass("com/jin/jni/bean/NDKDemo");
+        //赋值全局变量
+        ndkClass = env->NewGlobalRef(localRef);
+        return JNI_VERSION_1_6;
+    }
+    ```
+
+- 变量用完需释放内存空间
+
+  - ```java
+    //释放全局变量
+    env->DeleteGlobalRef(ndkClass);
+    //局部变量
+    env->DeleteLocalRef(bClass);
+    ```
+
+#### 子线程创建类
+
+- 子线程中通过拿到唯一的JavaVM* vm对象，获取JNIEnv* env对象，将获取到的env对象vm->AttachCurrentThread(&env, nullptr)附加到当前线程即可
+
+- ```java
+  void create_class(JavaVM* vm) {
+      JNIEnv *env = nullptr;
+      if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+          vm->AttachCurrentThread(&env, nullptr);
+      }
+      jclass aClass = env->FindClass("com/jin/jni/bean/NDKDemo");
+      jclass bClass = env->FindClass("android/app/Activity");
+      env->DeleteLocalRef(bClass);
+  }
+  
+  
+  extern "C" JNIEXPORT void JNICALL
+  Java_com_jin_jni_MainActivity_createClassFromThread(JNIEnv *env,jobject obj) {
+      //子线程中创建类
+      long pthread;
+      JavaVM* vm;
+      env->GetJavaVM(&vm);
+      pthread_create(&pthread, nullptr, reinterpret_cast<void *(*)(void *)>(create_class), vm);
+  }
+  ```
